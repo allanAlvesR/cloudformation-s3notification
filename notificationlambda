@@ -6,13 +6,12 @@ Resources:
         ZipFile: |
           import boto3
           def handler(event, context):
-            cf_client = boto3.client('cloudformation')
+            cf = boto3.resource("cloudformation")
             stackname = event['stackName']
             
-            response = cf_client.describe_stacks(StackName=stackname)
-            output = response["Stacks"][0]["Outputs"]
-            if output[0]['OutputKey'] == 'LambdaArn':
-                    lambdaarn = output[0]['OutputValue']
+            response = cf.Stack(stackname)
+            outputs = {output["OutputKey"]: output["OutputValue"] for output in response.outputs}
+            lambdaArn = outputs['LambdaArn']
             
             s3 = boto3.resource('s3')
             bucket_name = 'testando-o-trem-restore'
@@ -20,7 +19,7 @@ Resources:
             response = bucket_notification.put(
                     NotificationConfiguration={'LambdaFunctionConfigurations': [
                         {
-                            'LambdaFunctionArn': lambdaarn,
+                            'LambdaFunctionArn': lambdaArn,
                             'Events': [
                                 's3:ObjectCreated:*'
                             ],
