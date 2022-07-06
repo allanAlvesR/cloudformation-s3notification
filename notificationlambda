@@ -14,7 +14,7 @@ Resources:
             lambdaArn = outputs['LambdaArn']
             
             s3 = boto3.resource('s3')
-            bucket_name = 'testando-o-trem-restore'
+            bucket_name = event['bucketName']
             bucket_notification = s3.BucketNotification(bucket_name)
             response = bucket_notification.put(
                     NotificationConfiguration={'LambdaFunctionConfigurations': [
