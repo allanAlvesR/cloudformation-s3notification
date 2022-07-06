@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: 2010-09-09
+Resources:
+  UpdateCFLambda:
+    Properties:
+      Code:
+        ZipFile: |
+          import boto3
+          def handler(event, context):
+            cf_client = boto3.client('cloudformation')
+            stackname = event['stackName']
+            
+            response = cf_client.describe_stacks(StackName=stackname)
+            output = response["Stacks"][0]["Outputs"]
+            if output[0]['OutputKey'] == 'LambdaArn':
+                    lambdaarn = output[0]['OutputValue']
+            
+            s3 = boto3.resource('s3')
+            bucket_name = 'testando-o-trem-restore'
+            bucket_notification = s3.BucketNotification(bucket_name)
+            response = bucket_notification.put(
+                    NotificationConfiguration={'LambdaFunctionConfigurations': [
+                        {
+                            'LambdaFunctionArn': lambdaarn,
+                            'Events': [
+                                's3:ObjectCreated:*'
+                            ],
+            
+                        },
+                    ]})
+      FunctionName: notificationLambda
+      Handler: index.handler
+      MemorySize: 128
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.9
+      Timeout: 60
+    Type: 'AWS::Lambda::Function'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: abf6b836-0ba7-4e1b-8c97-6bb0b478ef47
+  LambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Path: /
+      RoleName: teste
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: teste2
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:PutBucketNotification'
+                  - 'cloudformation:DescribeStacks'
+                Resource: '*'
