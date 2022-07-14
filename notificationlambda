@@ -6,20 +6,27 @@ Resources:
         ZipFile: |
           import boto3
           def handler(event, context):
-            cf = boto3.resource("cloudformation")
-            stackname = event['stackName']
+            cf_resource = boto3.resource("cloudformation")
+            s3_resource = boto3.resource('s3')
+            #lambda_client = boto3.client('lambda')
+
+            stack_name = event['StackName']
+            bucket_name = event['BucketName']
             
-            response = cf.Stack(stackname)
-            outputs = {output["OutputKey"]: output["OutputValue"] for output in response.outputs}
-            lambdaArn = outputs['LambdaArn']
+            stack_response = cf_resource.Stack(stack_name)
+            outputs = {output["OutputKey"]: output["OutputValue"] for output in stack_response.outputs}
+            lambda_arn = outputs['LambdaArn']
             
-            s3 = boto3.resource('s3')
-            bucket_name = event['bucketName']
+            #lambda_client.add_permission(FunctionName=lambda_arn,
+            #                 StatementId=f's3_invoke_{bucket_name}',
+            #                 Action='lambda:InvokeFunction',
+            #                 Principal='s3.amazonaws.com')
+
             bucket_notification = s3.BucketNotification(bucket_name)
-            response = bucket_notification.put(
+            bucket_notification.put(
                     NotificationConfiguration={'LambdaFunctionConfigurations': [
                         {
-                            'LambdaFunctionArn': lambdaArn,
+                            'LambdaFunctionArn': lambda_arn,
                             'Events': [
                                 's3:ObjectCreated:*'
                             ],
@@ -33,14 +40,11 @@ Resources:
       Runtime: python3.9
       Timeout: 60
     Type: 'AWS::Lambda::Function'
-    Metadata:
-      'AWS::CloudFormation::Designer':
-        id: abf6b836-0ba7-4e1b-8c97-6bb0b478ef47
   LambdaRole:
     Type: 'AWS::IAM::Role'
     Properties:
       Path: /
-      RoleName: teste
+      RoleName: notificationLambdaRole
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -51,7 +55,7 @@ Resources:
             Action:
               - 'sts:AssumeRole'
       Policies:
-        - PolicyName: teste2
+        - PolicyName: notificationLambdaPolicy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
